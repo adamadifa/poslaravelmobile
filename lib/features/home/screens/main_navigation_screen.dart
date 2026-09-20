@@ -9,14 +9,35 @@ import 'package:poslaravelmobile/features/pos/screens/pos_workstation_screen.dar
 import 'package:poslaravelmobile/features/settings/screens/settings_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
+  static final GlobalKey<MainNavigationScreenState> globalKey = GlobalKey<MainNavigationScreenState>();
+
   const MainNavigationScreen({super.key});
 
+  static void navigateToTab(BuildContext context, int tabIndex) {
+    if (globalKey.currentState != null) {
+      globalKey.currentState!.setTab(tabIndex);
+      // Pop all pushed routes back to root so MainNavigationScreen is visible
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } else {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+        (route) => false,
+      );
+    }
+  }
+
   @override
-  State<MainNavigationScreen> createState() => _MainNavigationScreenState();
+  State<MainNavigationScreen> createState() => MainNavigationScreenState();
 }
 
-class _MainNavigationScreenState extends State<MainNavigationScreen> {
+class MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
+
+  void setTab(int index) {
+    if (mounted) {
+      setState(() => _currentIndex = index);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

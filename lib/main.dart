@@ -13,8 +13,11 @@ import 'package:poslaravelmobile/features/inventory/providers/stock_provider.dar
 import 'package:poslaravelmobile/features/master_data/providers/master_data_provider.dart';
 import 'package:poslaravelmobile/features/pos/providers/pos_provider.dart';
 import 'package:poslaravelmobile/features/purchasing/providers/purchasing_provider.dart';
+import 'package:poslaravelmobile/features/reports/providers/report_provider.dart';
 import 'package:poslaravelmobile/features/sales_returns/providers/sale_return_provider.dart';
+import 'package:poslaravelmobile/features/settings/providers/settings_provider.dart';
 import 'package:poslaravelmobile/features/shift/providers/shift_provider.dart';
+import 'package:poslaravelmobile/features/staff/providers/staff_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,6 +44,9 @@ class PosMobileApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SaleReturnProvider()),
         ChangeNotifierProvider(create: (_) => CashFlowProvider()),
         ChangeNotifierProvider(create: (_) => AccountTransferProvider()),
+        ChangeNotifierProvider(create: (_) => ReportProvider()),
+        ChangeNotifierProvider(create: (_) => StaffProvider()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
       ],
       child: MaterialApp(
         title: 'WarungPro POS',
@@ -72,7 +78,7 @@ class AuthGate extends StatelessWidget {
     }
 
     if (auth.isAuthenticated) {
-      return const MainNavigationScreen();
+      return MainNavigationScreen(key: MainNavigationScreen.globalKey);
     }
 
     return const LoginScreen();

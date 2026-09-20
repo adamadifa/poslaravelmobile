@@ -124,4 +124,28 @@ class AccountTransferProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  Future<bool> deleteTransfer(int id) async {
+    _isSubmitting = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final success = await _repository.deleteAccountTransfer(id);
+      if (success) {
+        await fetchTransfers(refresh: true);
+        _isSubmitting = false;
+        notifyListeners();
+        return true;
+      }
+      _isSubmitting = false;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _isSubmitting = false;
+      notifyListeners();
+      return false;
+    }
+  }
 }

@@ -126,4 +126,41 @@ class ApiEndpoints {
   static const String accountTransfers = '/account-transfers';
   static const String storeAccountTransfer = '/account-transfers';
   static String accountTransfer(int id) => '/account-transfers/$id';
+  static String deleteAccountTransfer(int id) => '/account-transfers/$id';
+
+  // Laporan & Analitik Bisnis (Reports & Analytics)
+  static const String reportSalesSummary = '/reports/sales-summary';
+  static const String reportSalesByProduct = '/reports/sales-by-product';
+  static const String reportSalesByCategory = '/reports/sales-by-category';
+  static const String reportSalesByCustomer = '/reports/sales-by-customer';
+  static const String reportPurchases = '/reports/purchases';
+  static const String reportProfitLoss = '/reports/profit-loss';
+  static const String reportInventoryValuation = '/reports/inventory-valuation';
+  static const String reportStockOpnames = '/reports/stock-opnames';
+  static const String reportPayables = '/reports/payables';
+  static const String reportReceivables = '/reports/receivables';
+  static const String reportCashFlows = '/reports/cash-flows';
+  static const String reportCashierShifts = '/reports/cashier-shifts';
+
+  // Staf & Pengguna (User Management)
+  static const String users = '/users';
+  static String user(int id) => '/users/$id';
+  static String updateUser(int id) => '/users/$id';
+  static String deleteUser(int id) => '/users/$id';
+
+  // Hak Akses & Peran (Roles & Permissions)
+  static const String roles = '/roles';
+  static String role(int id) => '/roles/$id';
+  static String updateRole(int id) => '/roles/$id';
+  static String deleteRole(int id) => '/roles/$id';
+
+  // Pengaturan Toko & Sistem (Store Settings)
+  static const String settings = '/settings';
+  static const String updateProfileSettings = '/settings/profile';
+  static const String updateBusinessTypeSettings = '/settings/business-type';
+  static const String updatePrefixesSettings = '/settings/prefixes';
+  static const String updateTaxCurrencySettings = '/settings/tax-currency';
+  static const String updateReceiptSettings = '/settings/receipt';
+  static const String updateAgentSettings = '/settings/agent';
 }
+

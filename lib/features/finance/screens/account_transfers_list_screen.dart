@@ -604,7 +604,67 @@ class _AccountTransfersListScreenState extends State<AccountTransfersListScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => _AccountTransferDetailSheet(item: item),
+      builder: (ctx) => _AccountTransferDetailSheet(
+        item: item,
+        onCancel: () {
+          Navigator.pop(ctx);
+          _confirmCancelTransfer(context, item);
+        },
+      ),
+    );
+  }
+
+  void _confirmCancelTransfer(BuildContext parentContext, AccountTransferModel item) {
+    showDialog(
+      context: parentContext,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(LucideIcons.alertTriangle, color: Color(0xFFDC2626), size: 22),
+            SizedBox(width: 8),
+            Text('Batalkan Transfer?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'Apakah Anda yakin ingin membatalkan mutasi transfer ${item.transferNumber} sebesar ${item.formattedAmount}?\n\nSaldo akun asal (${item.fromAccount?.name ?? 'Akun Asal'}) akan dikembalikan utuh dan saldo akun tujuan (${item.toAccount?.name ?? 'Akun Tujuan'}) akan ditarik kembali.',
+          style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Tutup', style: TextStyle(color: Color(0xFF64748B))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(parentContext);
+              Navigator.pop(dialogCtx);
+              final provider = parentContext.read<AccountTransferProvider>();
+              final success = await provider.deleteTransfer(item.id);
+              if (success) {
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Transfer berhasil dibatalkan dan saldo telah dikembalikan'),
+                    backgroundColor: Color(0xFF059669),
+                  ),
+                );
+              } else {
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(provider.errorMessage ?? 'Gagal membatalkan transfer'),
+                    backgroundColor: const Color(0xFFDC2626),
+                  ),
+                );
+              }
+            },
+            child: const Text('Ya, Batalkan Mutasi', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -623,8 +683,12 @@ class _AccountTransfersListScreenState extends State<AccountTransfersListScreen>
 // ==========================================================
 class _AccountTransferDetailSheet extends StatelessWidget {
   final AccountTransferModel item;
+  final VoidCallback onCancel;
 
-  const _AccountTransferDetailSheet({required this.item});
+  const _AccountTransferDetailSheet({
+    required this.item,
+    required this.onCancel,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -718,6 +782,21 @@ class _AccountTransferDetailSheet extends StatelessWidget {
             _buildDetailRow('Catatan / Keterangan', item.notes!),
           if (item.creatorName != null)
             _buildDetailRow('Diproses Oleh', item.creatorName!),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFDC2626),
+                side: const BorderSide(color: Color(0xFFFECDD3)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: onCancel,
+              icon: const Icon(LucideIcons.trash2, size: 16),
+              label: const Text('Batalkan & Hapus Transfer Ini', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ),
         ],
       ),
     );

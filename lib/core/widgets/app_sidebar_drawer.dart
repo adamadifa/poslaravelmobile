@@ -27,8 +27,12 @@ import 'package:poslaravelmobile/features/purchasing/screens/purchase_returns_li
 import 'package:poslaravelmobile/features/purchasing/screens/supplier_payables_screen.dart';
 import 'package:poslaravelmobile/features/finance/screens/account_transfers_list_screen.dart';
 import 'package:poslaravelmobile/features/finance/screens/cash_flows_list_screen.dart';
+import 'package:poslaravelmobile/features/home/screens/main_navigation_screen.dart';
 import 'package:poslaravelmobile/features/pos/screens/customer_receivables_screen.dart';
+import 'package:poslaravelmobile/features/reports/screens/reports_hub_screen.dart';
 import 'package:poslaravelmobile/features/sales_returns/screens/sale_returns_list_screen.dart';
+import 'package:poslaravelmobile/features/staff/screens/roles_matrix_screen.dart';
+import 'package:poslaravelmobile/features/staff/screens/staff_users_screen.dart';
 
 class AppSidebarDrawer extends StatelessWidget {
   final Function(int)? onNavigateToTab;
@@ -44,6 +48,8 @@ class AppSidebarDrawer extends StatelessWidget {
     Navigator.pop(context); // close drawer
     if (onNavigateToTab != null) {
       onNavigateToTab!(tabIndex);
+    } else {
+      MainNavigationScreen.navigateToTab(context, tabIndex);
     }
   }
 
@@ -317,17 +323,17 @@ class AppSidebarDrawer extends StatelessWidget {
                   _buildSidebarItem(
                     title: 'Laporan & Analitik',
                     icon: LucideIcons.barChart3,
-                    onTap: () => _selectTab(context, 2),
+                    onTap: () => _pushScreen(context, const ReportsHubScreen()),
                   ),
                   _buildSidebarItem(
                     title: 'Staf & Pengguna',
                     icon: LucideIcons.users,
-                    onTap: () => _selectTab(context, 4),
+                    onTap: () => _pushScreen(context, const StaffUsersScreen()),
                   ),
                   _buildSidebarItem(
                     title: 'Hak Akses & Peran',
                     icon: LucideIcons.shieldCheck,
-                    onTap: () => _selectTab(context, 4),
+                    onTap: () => _pushScreen(context, const RolesMatrixScreen()),
                   ),
                   _buildSidebarItem(
                     title: 'Pengaturan Toko',

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 import 'package:poslaravelmobile/core/theme/app_colors.dart';
 import 'package:poslaravelmobile/core/utils/currency_formatter.dart';
@@ -52,6 +53,247 @@ class _MobilePosScreenState extends State<MobilePosScreen> {
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  // ===========================================================================
+  // 0. CAMERA BARCODE SCANNER MODAL
+  // ===========================================================================
+  void _showBarcodeScannerModal(BuildContext context) {
+    final MobileScannerController scannerController = MobileScannerController(
+      detectionSpeed: DetectionSpeed.noDuplicates,
+      facing: CameraFacing.back,
+      torchEnabled: false,
+    );
+    bool isScanned = false;
+    bool isTorchOn = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (modalCtx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              height: MediaQuery.of(modalCtx).size.height * 0.70,
+              decoration: const BoxDecoration(
+                color: Color(0xFF0F172A),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 4.5,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 14, 16, 12),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(LucideIcons.scanLine, color: AppColors.primary, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Scan Barcode / QR Produk',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              Text(
+                                'Arahkan kamera ke barcode kemasan produk',
+                                style: TextStyle(
+                                  color: Colors.white60,
+                                  fontSize: 11.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            isTorchOn ? LucideIcons.zap : LucideIcons.zapOff,
+                            color: isTorchOn ? Colors.amber : Colors.white70,
+                            size: 20,
+                          ),
+                          onPressed: () async {
+                            await scannerController.toggleTorch();
+                            setModalState(() {
+                              isTorchOn = !isTorchOn;
+                            });
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(LucideIcons.x, color: Colors.white70, size: 20),
+                          onPressed: () => Navigator.pop(modalCtx),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: MobileScanner(
+                            controller: scannerController,
+                            errorBuilder: (context, error) {
+                              return Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(20.0),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(LucideIcons.cameraOff, color: AppColors.error, size: 40),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        'Gagal Membuka Kamera: ${error.errorCode}',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      const Text(
+                                        'Pastikan izin kamera sudah diberikan atau lakukan restart aplikasi setelah penambahan plugin native.',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(color: Colors.white60, fontSize: 11),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                            onDetect: (capture) {
+                              if (isScanned) return;
+                              final barcodes = capture.barcodes;
+                              for (final barcode in barcodes) {
+                                final code = barcode.rawValue?.trim();
+                                if (code != null && code.isNotEmpty) {
+                                  isScanned = true;
+                                  HapticFeedback.mediumImpact();
+                                  Navigator.pop(modalCtx);
+                                  _processScannedBarcode(code);
+                                  break;
+                                }
+                              }
+                            },
+                          ),
+                        ),
+                        // Scanner Overlay Box
+                        Container(
+                          width: 250,
+                          height: 250,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: AppColors.primary, width: 2.5),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.25),
+                                blurRadius: 20,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(LucideIcons.info, size: 14, color: Colors.white60),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Pindai cepat untuk otomatis menambahkan ke keranjang',
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 11.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    ).then((_) {
+      scannerController.dispose();
+    });
+  }
+
+  void _processScannedBarcode(String barcode) {
+    final pos = context.read<PosProvider>();
+
+    // 1. Try to find product by barcode or product code or multi-barcodes in current product list
+    ProductModel? matchedProduct;
+    for (final p in pos.products) {
+      if (p.barcode?.trim().toLowerCase() == barcode.toLowerCase() ||
+          p.code?.trim().toLowerCase() == barcode.toLowerCase() ||
+          p.barcodes.any((b) => b.barcode.trim().toLowerCase() == barcode.toLowerCase())) {
+        matchedProduct = p;
+        break;
+      }
+    }
+
+    if (matchedProduct != null) {
+      pos.addToCart(matchedProduct);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(LucideIcons.checkCircle2, color: Colors.white, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '${matchedProduct.name} ditambahkan ke keranjang!',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: AppColors.primaryDark,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      // Set query in search field and search via API
+      _searchCtrl.text = barcode;
+      pos.search(barcode);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Barcode "$barcode" dicari di sistem...',
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
+          ),
+          backgroundColor: AppColors.textSecondary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   // ===========================================================================
@@ -2902,18 +3144,39 @@ class _MobilePosScreenState extends State<MobilePosScreen> {
   Widget build(BuildContext context) {
     final pos = context.watch<PosProvider>();
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: Column(
           children: [
-            // Top Modern Header
+            // Top Modern Orange Header extending behind status bar
             Container(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-              color: Colors.white,
-              child: Column(
-                children: [
-                  // Row 1: Brand / Customer Selector Pill & Recall Action
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFFEA580C), Color(0xFFC2410C)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x28EA580C),
+                    blurRadius: 16,
+                    offset: Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                  child: Column(
+                    children: [
+                  // Row 1: Customer Selector Pill & Recall Action
                   Row(
                     children: [
                       // Customer Picker Pill
@@ -2924,16 +3187,16 @@ class _MobilePosScreenState extends State<MobilePosScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
-                              color: AppColors.inputBackground,
+                              color: Colors.white.withValues(alpha: 0.18),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.border),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
                             ),
                             child: Row(
                               children: [
                                 Container(
                                   padding: const EdgeInsets.all(5),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primarySurface,
+                                    color: Colors.white,
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: const Icon(LucideIcons.user, size: 14, color: AppColors.primary),
@@ -2945,17 +3208,17 @@ class _MobilePosScreenState extends State<MobilePosScreen> {
                                     children: [
                                       const Text(
                                         'PELANGGAN',
-                                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: AppColors.textMuted, letterSpacing: 0.5),
+                                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white70, letterSpacing: 0.5),
                                       ),
                                       Text(
                                         pos.selectedCustomer?.name ?? 'Pelanggan Umum (Retail)',
                                         overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.textPrimary),
+                                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.white),
                                       ),
                                     ],
                                   ),
                                 ),
-                                const Icon(LucideIcons.chevronDown, size: 14, color: AppColors.textMuted),
+                                const Icon(LucideIcons.chevronDown, size: 14, color: Colors.white70),
                               ],
                             ),
                           ),
@@ -2970,62 +3233,119 @@ class _MobilePosScreenState extends State<MobilePosScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           decoration: BoxDecoration(
-                            color: AppColors.inputBackground,
+                            color: Colors.white.withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.border),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
                           ),
                           child: const Row(
                             children: [
-                              Icon(LucideIcons.playCircle, size: 16, color: AppColors.primary),
+                              Icon(LucideIcons.playCircle, size: 16, color: Colors.white),
                               SizedBox(width: 6),
-                              Text('Recall', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                              Text('Recall', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
                             ],
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
 
-                  // Search Bar
-                  TextField(
-                    controller: _searchCtrl,
-                    decoration: InputDecoration(
-                      hintText: 'Cari nama produk / scan barcode...',
-                      prefixIcon: const Icon(LucideIcons.search, size: 16, color: AppColors.textMuted),
-                      filled: true,
-                      fillColor: AppColors.inputBackground,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.border),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.border),
-                      ),
-                      suffixIcon: _searchCtrl.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(LucideIcons.x, size: 15),
-                              onPressed: () {
-                                _searchCtrl.clear();
-                                pos.search('');
-                              },
-                            )
-                          : const Icon(LucideIcons.scanLine, size: 16, color: AppColors.primary),
+                  // Search & Barcode Scan Bar
+                  Container(
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
-                    onChanged: (val) => pos.search(val),
+                    child: Row(
+                      children: [
+                        const SizedBox(width: 12),
+                        const Icon(LucideIcons.search, size: 18, color: AppColors.textMuted),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: _searchCtrl,
+                            textAlignVertical: TextAlignVertical.center,
+                            style: const TextStyle(fontSize: 13.5, color: AppColors.textPrimary, fontWeight: FontWeight.w500),
+                            decoration: const InputDecoration(
+                              hintText: 'Cari produk / barcode...',
+                              hintStyle: TextStyle(fontSize: 13, color: AppColors.textMuted),
+                              isCollapsed: true,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                            ),
+                            onChanged: (val) => pos.search(val),
+                          ),
+                        ),
+                        if (_searchCtrl.text.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(LucideIcons.x, size: 16, color: AppColors.textMuted),
+                            padding: const EdgeInsets.all(8),
+                            constraints: const BoxConstraints(),
+                            tooltip: 'Hapus Pencarian',
+                            onPressed: () {
+                              _searchCtrl.clear();
+                              pos.search('');
+                            },
+                          ),
+                        Container(
+                          height: 24,
+                          width: 1,
+                          color: AppColors.border,
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                        ),
+                        InkWell(
+                          onTap: () => _showBarcodeScannerModal(context),
+                          borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(5),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primarySurface,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(LucideIcons.scanLine, size: 15, color: AppColors.primary),
+                                ),
+                                const SizedBox(width: 5),
+                                const Text(
+                                  'Scan',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.primaryDark,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
+          ),
+        ),
 
-            // Horizontal Categories Filter Chips
+        // Horizontal Categories Filter Chips
             Container(
-              height: 44,
-              color: Colors.white,
+              height: 48,
+              padding: const EdgeInsets.symmetric(vertical: 6),
               child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 scrollDirection: Axis.horizontal,
                 itemCount: pos.categories.length + 1,
                 separatorBuilder: (context, index) => const SizedBox(width: 6),
@@ -3036,7 +3356,7 @@ class _MobilePosScreenState extends State<MobilePosScreen> {
                       label: const Text('Semua'),
                       selected: isSelected,
                       selectedColor: AppColors.primary,
-                      backgroundColor: AppColors.inputBackground,
+                      backgroundColor: Colors.white,
                       side: BorderSide(color: isSelected ? AppColors.primary : AppColors.border),
                       labelStyle: TextStyle(
                         fontSize: 11,
@@ -3052,7 +3372,7 @@ class _MobilePosScreenState extends State<MobilePosScreen> {
                     label: Text(cat.name),
                     selected: isSelected,
                     selectedColor: AppColors.primary,
-                    backgroundColor: AppColors.inputBackground,
+                    backgroundColor: Colors.white,
                     side: BorderSide(color: isSelected ? AppColors.primary : AppColors.border),
                     labelStyle: TextStyle(
                       fontSize: 11,
@@ -3099,7 +3419,6 @@ class _MobilePosScreenState extends State<MobilePosScreen> {
             ),
           ],
         ),
-      ),
 
       // Floating Cart Bottom Bar
       bottomNavigationBar: pos.cartItems.isEmpty
@@ -3155,6 +3474,7 @@ class _MobilePosScreenState extends State<MobilePosScreen> {
                 ),
               ),
             ),
+      ),
     );
   }
 

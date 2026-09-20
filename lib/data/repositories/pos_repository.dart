@@ -18,6 +18,7 @@ import 'package:poslaravelmobile/data/models/purchase_order_model.dart';
 import 'package:poslaravelmobile/data/models/purchase_payable_model.dart';
 import 'package:poslaravelmobile/data/models/purchase_receipt_model.dart';
 import 'package:poslaravelmobile/data/models/purchase_return_model.dart';
+import 'package:poslaravelmobile/data/models/report_model.dart';
 import 'package:poslaravelmobile/data/models/sale_model.dart';
 import 'package:poslaravelmobile/data/models/sale_return_model.dart';
 import 'package:poslaravelmobile/data/models/stock_adjustment_model.dart';
@@ -26,8 +27,10 @@ import 'package:poslaravelmobile/data/models/stock_batch_model.dart';
 import 'package:poslaravelmobile/data/models/stock_movement_model.dart';
 import 'package:poslaravelmobile/data/models/stock_opname_model.dart';
 import 'package:poslaravelmobile/data/models/stock_transfer_model.dart';
+import 'package:poslaravelmobile/data/models/store_settings_model.dart';
 import 'package:poslaravelmobile/data/models/supplier_model.dart';
 import 'package:poslaravelmobile/data/models/unit_model.dart';
+import 'package:poslaravelmobile/data/models/user_management_model.dart';
 import 'package:poslaravelmobile/data/models/warehouse_model.dart';
 
 class PosRepository {
@@ -1849,4 +1852,515 @@ class PosRepository {
       throw Exception(e.toString());
     }
   }
+
+  Future<bool> deleteAccountTransfer(int id) async {
+    try {
+      final response = await _apiClient.delete(ApiEndpoints.deleteAccountTransfer(id));
+      if (response.statusCode == 200 &&
+          (response.data['success'] == true || response.data['status'] == 'success')) {
+        return true;
+      }
+      throw Exception(response.data['message'] ?? 'Gagal membatalkan transfer kas');
+    } on DioException catch (e) {
+      final serverMsg = e.response?.data?['message'] ??
+          (e.response?.data?['errors'] is List ? (e.response?.data?['errors'] as List).join(', ') : null);
+      throw Exception(serverMsg ?? e.message ?? 'Gagal membatalkan transfer kas');
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception(e.toString());
+    }
+  }
+
+  // ==========================================
+  // LAPORAN & ANALITIK BISNIS (REPORTS)
+  // ==========================================
+
+  Future<SalesReportData?> getSalesReportSummary({
+    String? startDate,
+    String? endDate,
+    int? warehouseId,
+    int? userId,
+    String? paymentMethod,
+  }) async {
+    try {
+      final query = <String, dynamic>{};
+      if (startDate != null) query['start_date'] = startDate;
+      if (endDate != null) query['end_date'] = endDate;
+      if (warehouseId != null) query['warehouse_id'] = warehouseId;
+      if (userId != null) query['user_id'] = userId;
+      if (paymentMethod != null && paymentMethod != 'all') query['payment_method'] = paymentMethod;
+
+      final response = await _apiClient.get(ApiEndpoints.reportSalesSummary, queryParameters: query);
+      if (response.statusCode == 200 &&
+          (response.data['success'] == true || response.data['status'] == 'success')) {
+        return SalesReportData.fromJson(response.data['data']);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<ProductPerformanceModel>> getSalesByProductReport({
+    String? startDate,
+    String? endDate,
+    int? categoryId,
+    int? warehouseId,
+    String? search,
+    int limit = 25,
+  }) async {
+    try {
+      final query = <String, dynamic>{};
+      if (startDate != null) query['start_date'] = startDate;
+      if (endDate != null) query['end_date'] = endDate;
+      if (categoryId != null) query['category_id'] = categoryId;
+      if (warehouseId != null) query['warehouse_id'] = warehouseId;
+      if (search != null && search.isNotEmpty) query['search'] = search;
+      query['limit'] = limit;
+
+      final response = await _apiClient.get(ApiEndpoints.reportSalesByProduct, queryParameters: query);
+      if (response.statusCode == 200 &&
+          (response.data['success'] == true || response.data['status'] == 'success')) {
+        final list = response.data['data'] as List;
+        return list.map((item) => ProductPerformanceModel.fromJson(item)).toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<CategoryPerformanceModel>> getSalesByCategoryReport({
+    String? startDate,
+    String? endDate,
+    int? warehouseId,
+  }) async {
+    try {
+      final query = <String, dynamic>{};
+      if (startDate != null) query['start_date'] = startDate;
+      if (endDate != null) query['end_date'] = endDate;
+      if (warehouseId != null) query['warehouse_id'] = warehouseId;
+
+      final response = await _apiClient.get(ApiEndpoints.reportSalesByCategory, queryParameters: query);
+      if (response.statusCode == 200 &&
+          (response.data['success'] == true || response.data['status'] == 'success')) {
+        final list = response.data['data'] as List;
+        return list.map((item) => CategoryPerformanceModel.fromJson(item)).toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<ProfitLossReportData?> getProfitLossReport({
+    String? startDate,
+    String? endDate,
+    int? warehouseId,
+  }) async {
+    try {
+      final query = <String, dynamic>{};
+      if (startDate != null) query['start_date'] = startDate;
+      if (endDate != null) query['end_date'] = endDate;
+      if (warehouseId != null) query['warehouse_id'] = warehouseId;
+
+      final response = await _apiClient.get(ApiEndpoints.reportProfitLoss, queryParameters: query);
+      if (response.statusCode == 200 &&
+          (response.data['success'] == true || response.data['status'] == 'success')) {
+        return ProfitLossReportData.fromJson(response.data['data']);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<InventoryValuationData?> getInventoryValuationReport({
+    int? warehouseId,
+    int? categoryId,
+  }) async {
+    try {
+      final query = <String, dynamic>{};
+      if (warehouseId != null) query['warehouse_id'] = warehouseId;
+      if (categoryId != null) query['category_id'] = categoryId;
+
+      final response = await _apiClient.get(ApiEndpoints.reportInventoryValuation, queryParameters: query);
+      if (response.statusCode == 200 &&
+          (response.data['success'] == true || response.data['status'] == 'success')) {
+        return InventoryValuationData.fromJson(response.data['data']);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<CustomerSalesReportModel>> getSalesByCustomerReport({
+    String? startDate,
+    String? endDate,
+    String? search,
+  }) async {
+    try {
+      final query = <String, dynamic>{};
+      if (startDate != null) query['start_date'] = startDate;
+      if (endDate != null) query['end_date'] = endDate;
+      if (search != null && search.isNotEmpty) query['search'] = search;
+
+      final response = await _apiClient.get(ApiEndpoints.reportSalesByCustomer, queryParameters: query);
+      if (response.statusCode == 200 &&
+          (response.data['success'] == true || response.data['status'] == 'success')) {
+        final list = response.data['data'] as List;
+        return list.map((item) => CustomerSalesReportModel.fromJson(item)).toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<PurchasesReportData?> getPurchasesReport({
+    String? startDate,
+    String? endDate,
+    int? supplierId,
+    int? warehouseId,
+  }) async {
+    try {
+      final query = <String, dynamic>{};
+      if (startDate != null) query['start_date'] = startDate;
+      if (endDate != null) query['end_date'] = endDate;
+      if (supplierId != null) query['supplier_id'] = supplierId;
+      if (warehouseId != null) query['warehouse_id'] = warehouseId;
+
+      final response = await _apiClient.get(ApiEndpoints.reportPurchases, queryParameters: query);
+      if (response.statusCode == 200 &&
+          (response.data['success'] == true || response.data['status'] == 'success')) {
+        return PurchasesReportData.fromJson(response.data['data']);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<StockOpnameReportItem>> getStockOpnamesReport({
+    String? startDate,
+    String? endDate,
+    int? warehouseId,
+  }) async {
+    try {
+      final query = <String, dynamic>{};
+      if (startDate != null) query['start_date'] = startDate;
+      if (endDate != null) query['end_date'] = endDate;
+      if (warehouseId != null) query['warehouse_id'] = warehouseId;
+
+      final response = await _apiClient.get(ApiEndpoints.reportStockOpnames, queryParameters: query);
+      if (response.statusCode == 200 &&
+          (response.data['success'] == true || response.data['status'] == 'success')) {
+        final list = response.data['data'] as List;
+        return list.map((item) => StockOpnameReportItem.fromJson(item)).toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<PayableReportData?> getPayablesReport({int? supplierId}) async {
+    try {
+      final query = <String, dynamic>{};
+      if (supplierId != null) query['supplier_id'] = supplierId;
+
+      final response = await _apiClient.get(ApiEndpoints.reportPayables, queryParameters: query);
+      if (response.statusCode == 200 &&
+          (response.data['success'] == true || response.data['status'] == 'success')) {
+        return PayableReportData.fromJson(response.data['data']);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<ReceivableReportData?> getReceivablesReport({int? customerId}) async {
+    try {
+      final query = <String, dynamic>{};
+      if (customerId != null) query['customer_id'] = customerId;
+
+      final response = await _apiClient.get(ApiEndpoints.reportReceivables, queryParameters: query);
+      if (response.statusCode == 200 &&
+          (response.data['success'] == true || response.data['status'] == 'success')) {
+        return ReceivableReportData.fromJson(response.data['data']);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<CashFlowReportData?> getCashFlowsReport({
+    String? startDate,
+    String? endDate,
+    int? accountId,
+  }) async {
+    try {
+      final query = <String, dynamic>{};
+      if (startDate != null) query['start_date'] = startDate;
+      if (endDate != null) query['end_date'] = endDate;
+      if (accountId != null) query['account_id'] = accountId;
+
+      final response = await _apiClient.get(ApiEndpoints.reportCashFlows, queryParameters: query);
+      if (response.statusCode == 200 &&
+          (response.data['success'] == true || response.data['status'] == 'success')) {
+        return CashFlowReportData.fromJson(response.data['data']);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<CashierShiftReportData?> getCashierShiftsReport({
+    String? startDate,
+    String? endDate,
+    int? userId,
+    int? warehouseId,
+  }) async {
+    try {
+      final query = <String, dynamic>{};
+      if (startDate != null) query['start_date'] = startDate;
+      if (endDate != null) query['end_date'] = endDate;
+      if (userId != null) query['user_id'] = userId;
+      if (warehouseId != null) query['warehouse_id'] = warehouseId;
+
+      final response = await _apiClient.get(ApiEndpoints.reportCashierShifts, queryParameters: query);
+      if (response.statusCode == 200 &&
+          (response.data['success'] == true || response.data['status'] == 'success')) {
+        return CashierShiftReportData.fromJson(response.data['data']);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ==================== STAF, PENGGUNA & HAK AKSES ====================
+
+  Future<List<StaffUserModel>> getUsers({String? search, String? role}) async {
+    try {
+      final query = <String, dynamic>{};
+      if (search != null && search.isNotEmpty) query['q'] = search;
+      if (role != null && role.isNotEmpty) query['role'] = role;
+
+      final response = await _apiClient.get(ApiEndpoints.users, queryParameters: query);
+      if (response.statusCode == 200 &&
+          (response.data['success'] == true || response.data['status'] == 'success')) {
+        final list = response.data['data']['users'] as List? ?? [];
+        return list.map((item) => StaffUserModel.fromJson(item as Map<String, dynamic>)).toList();
+      }
+      return [];
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['message'] ?? 'Gagal memuat daftar pengguna.');
+    }
+  }
+
+  Future<StaffUserModel> storeUser(Map<String, dynamic> data) async {
+    try {
+      final response = await _apiClient.post(ApiEndpoints.users, data: data);
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        return StaffUserModel.fromJson(response.data['data'] as Map<String, dynamic>);
+      }
+      throw Exception(response.data['message'] ?? 'Gagal menambahkan staf.');
+    } on DioException catch (e) {
+      final errors = e.response?.data?['errors'];
+      if (errors is List && errors.isNotEmpty) {
+        throw Exception(errors.first);
+      }
+      throw Exception(e.response?.data?['message'] ?? 'Gagal menambahkan pengguna baru.');
+    }
+  }
+
+  Future<StaffUserModel> updateUser(int id, Map<String, dynamic> data) async {
+    try {
+      final response = await _apiClient.post(ApiEndpoints.updateUser(id), data: data);
+      if (response.statusCode == 200) {
+        return StaffUserModel.fromJson(response.data['data'] as Map<String, dynamic>);
+      }
+      throw Exception(response.data['message'] ?? 'Gagal memperbarui staf.');
+    } on DioException catch (e) {
+      final errors = e.response?.data?['errors'];
+      if (errors is List && errors.isNotEmpty) {
+        throw Exception(errors.first);
+      }
+      throw Exception(e.response?.data?['message'] ?? 'Gagal memperbarui data pengguna.');
+    }
+  }
+
+  Future<void> deleteUser(int id) async {
+    try {
+      final response = await _apiClient.delete(ApiEndpoints.deleteUser(id));
+      if (response.statusCode != 200) {
+        throw Exception(response.data['message'] ?? 'Gagal menghapus pengguna.');
+      }
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['message'] ?? 'Gagal menghapus pengguna.');
+    }
+  }
+
+  Future<Map<String, dynamic>> getRoles() async {
+    try {
+      final response = await _apiClient.get(ApiEndpoints.roles);
+      if (response.statusCode == 200 &&
+          (response.data['success'] == true || response.data['status'] == 'success')) {
+        final data = response.data['data'] as Map<String, dynamic>;
+        final rawRoles = data['roles'] as List? ?? [];
+        final roles = rawRoles.map((r) => RoleModel.fromJson(r as Map<String, dynamic>)).toList();
+
+        final rawModules = data['permission_modules'] as Map<String, dynamic>? ?? {};
+        final modules = rawModules.entries
+            .map((e) => PermissionModuleModel.fromMap(e.key, e.value as Map<String, dynamic>))
+            .toList();
+
+        return {
+          'roles': roles,
+          'permission_modules': modules,
+          'total_permissions_count': data['total_permissions_count'] ?? 0,
+        };
+      }
+      return {'roles': <RoleModel>[], 'permission_modules': <PermissionModuleModel>[]};
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['message'] ?? 'Gagal memuat peran & hak akses.');
+    }
+  }
+
+  Future<RoleModel> storeRole(String name, List<String> permissions) async {
+    try {
+      final response = await _apiClient.post(ApiEndpoints.roles, data: {
+        'name': name,
+        'permissions': permissions,
+      });
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        return RoleModel.fromJson(response.data['data'] as Map<String, dynamic>);
+      }
+      throw Exception(response.data['message'] ?? 'Gagal membuat peran baru.');
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['message'] ?? 'Gagal membuat peran baru.');
+    }
+  }
+
+  Future<RoleModel> updateRole(int id, String name, List<String> permissions) async {
+    try {
+      final response = await _apiClient.post(ApiEndpoints.updateRole(id), data: {
+        'name': name,
+        'permissions': permissions,
+      });
+      if (response.statusCode == 200) {
+        return RoleModel.fromJson(response.data['data'] as Map<String, dynamic>);
+      }
+      throw Exception(response.data['message'] ?? 'Gagal memperbarui peran.');
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['message'] ?? 'Gagal memperbarui peran.');
+    }
+  }
+
+  Future<void> deleteRole(int id) async {
+    try {
+      final response = await _apiClient.delete(ApiEndpoints.deleteRole(id));
+      if (response.statusCode != 200) {
+        throw Exception(response.data['message'] ?? 'Gagal menghapus peran.');
+      }
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['message'] ?? 'Gagal menghapus peran.');
+    }
+  }
+
+  // ==========================================
+  // PENGATURAN SISTEM & TOKO (STORE SETTINGS)
+  // ==========================================
+
+  Future<StoreSettingsModel> getStoreSettings() async {
+    try {
+      final response = await _apiClient.get(ApiEndpoints.settings);
+      if (response.statusCode == 200 &&
+          (response.data['success'] == true || response.data['status'] == 'success')) {
+        return StoreSettingsModel.fromJson(response.data['data'] as Map<String, dynamic>);
+      }
+      throw Exception(response.data['message'] ?? 'Gagal memuat pengaturan toko.');
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['message'] ?? 'Gagal memuat pengaturan toko.');
+    }
+  }
+
+  Future<StoreSettingsModel> updateProfileSettings(Map<String, dynamic> data) async {
+    try {
+      final response = await _apiClient.post(ApiEndpoints.updateProfileSettings, data: data);
+      if (response.statusCode == 200) {
+        return StoreSettingsModel.fromJson(response.data['data'] as Map<String, dynamic>);
+      }
+      throw Exception(response.data['message'] ?? 'Gagal menyimpan profil toko.');
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['message'] ?? 'Gagal menyimpan profil toko.');
+    }
+  }
+
+  Future<StoreSettingsModel> updateBusinessTypeSettings(Map<String, dynamic> data) async {
+    try {
+      final response = await _apiClient.post(ApiEndpoints.updateBusinessTypeSettings, data: data);
+      if (response.statusCode == 200) {
+        return StoreSettingsModel.fromJson(response.data['data'] as Map<String, dynamic>);
+      }
+      throw Exception(response.data['message'] ?? 'Gagal menyimpan konfigurasi jenis usaha.');
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['message'] ?? 'Gagal menyimpan konfigurasi jenis usaha.');
+    }
+  }
+
+  Future<StoreSettingsModel> updatePrefixesSettings(Map<String, dynamic> data) async {
+    try {
+      final response = await _apiClient.post(ApiEndpoints.updatePrefixesSettings, data: data);
+      if (response.statusCode == 200) {
+        return StoreSettingsModel.fromJson(response.data['data'] as Map<String, dynamic>);
+      }
+      throw Exception(response.data['message'] ?? 'Gagal menyimpan format nomor transaksi.');
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['message'] ?? 'Gagal menyimpan format nomor transaksi.');
+    }
+  }
+
+  Future<StoreSettingsModel> updateTaxCurrencySettings(Map<String, dynamic> data) async {
+    try {
+      final response = await _apiClient.post(ApiEndpoints.updateTaxCurrencySettings, data: data);
+      if (response.statusCode == 200) {
+        return StoreSettingsModel.fromJson(response.data['data'] as Map<String, dynamic>);
+      }
+      throw Exception(response.data['message'] ?? 'Gagal menyimpan pengaturan pajak.');
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['message'] ?? 'Gagal menyimpan pengaturan pajak.');
+    }
+  }
+
+  Future<StoreSettingsModel> updateReceiptSettings(Map<String, dynamic> data) async {
+    try {
+      final response = await _apiClient.post(ApiEndpoints.updateReceiptSettings, data: data);
+      if (response.statusCode == 200) {
+        return StoreSettingsModel.fromJson(response.data['data'] as Map<String, dynamic>);
+      }
+      throw Exception(response.data['message'] ?? 'Gagal menyimpan template struk.');
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['message'] ?? 'Gagal menyimpan template struk.');
+    }
+  }
+
+  Future<StoreSettingsModel> updateAgentSettings(Map<String, dynamic> data) async {
+    try {
+      final response = await _apiClient.post(ApiEndpoints.updateAgentSettings, data: data);
+      if (response.statusCode == 200) {
+        return StoreSettingsModel.fromJson(response.data['data'] as Map<String, dynamic>);
+      }
+      throw Exception(response.data['message'] ?? 'Gagal menyimpan biaya admin agen.');
+    } on DioException catch (e) {
+      throw Exception(e.response?.data?['message'] ?? 'Gagal menyimpan biaya admin agen.');
+    }
+  }
 }
+
+

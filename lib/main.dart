@@ -12,6 +12,7 @@ import 'package:poslaravelmobile/features/home/screens/main_navigation_screen.da
 import 'package:poslaravelmobile/features/inventory/providers/stock_provider.dart';
 import 'package:poslaravelmobile/features/master_data/providers/master_data_provider.dart';
 import 'package:poslaravelmobile/features/pos/providers/pos_provider.dart';
+import 'package:poslaravelmobile/features/printer/providers/printer_provider.dart';
 import 'package:poslaravelmobile/features/purchasing/providers/purchasing_provider.dart';
 import 'package:poslaravelmobile/features/reports/providers/report_provider.dart';
 import 'package:poslaravelmobile/features/sales_returns/providers/sale_return_provider.dart';
@@ -47,6 +48,7 @@ class PosMobileApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ReportProvider()),
         ChangeNotifierProvider(create: (_) => StaffProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider(create: (_) => PrinterProvider()),
       ],
       child: MaterialApp(
         title: 'WarungPro POS',

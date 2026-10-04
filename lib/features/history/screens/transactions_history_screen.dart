@@ -4,8 +4,12 @@ import 'package:provider/provider.dart';
 import 'package:poslaravelmobile/core/theme/app_colors.dart';
 import 'package:poslaravelmobile/core/utils/currency_formatter.dart';
 import 'package:poslaravelmobile/data/models/sale_model.dart';
+import 'package:poslaravelmobile/features/auth/providers/auth_provider.dart';
 import 'package:poslaravelmobile/features/dashboard/providers/dashboard_provider.dart';
 import 'package:poslaravelmobile/features/master_data/providers/master_data_provider.dart';
+import 'package:poslaravelmobile/features/printer/providers/printer_provider.dart';
+import 'package:poslaravelmobile/features/printer/screens/printer_settings_screen.dart';
+import 'package:poslaravelmobile/features/settings/providers/settings_provider.dart';
 
 class TransactionsHistoryScreen extends StatefulWidget {
   const TransactionsHistoryScreen({super.key});
@@ -519,14 +523,62 @@ class _TransactionsHistoryScreenState extends State<TransactionsHistoryScreen> {
                         ),
                         icon: const Icon(LucideIcons.printer, size: 16, color: Color(0xFF1E293B)),
                         label: const Text('Cetak Struk', style: TextStyle(color: Color(0xFF1E293B), fontWeight: FontWeight.w700, fontSize: 12.5)),
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Perintah cetak faktur ${sale.invoiceNumber} dikirim ke printer thermal.'),
-                              backgroundColor: AppColors.primary,
-                            ),
+                        onPressed: () async {
+                          final printer = ctx.read<PrinterProvider>();
+                          final auth = ctx.read<AuthProvider>();
+                          final settingsProv = ctx.read<SettingsProvider>();
+                          final storeName = settingsProv.profile?.companyName.isNotEmpty == true ? settingsProv.profile!.companyName : 'WARUNG PRO POS';
+
+                          final itemsList = sale.items.map((e) => {
+                            'name': e.productName,
+                            'quantity': e.quantity,
+                            'unit_price': e.unitPrice,
+                            'subtotal': e.subtotal,
+                          }).toList();
+
+                          final success = await printer.printSale(
+                            storeName: storeName,
+                            invoiceNumber: sale.invoiceNumber,
+                            dateString: sale.saleDate ?? DateTime.now().toString().substring(0, 19),
+                            cashierName: sale.cashierName.isNotEmpty ? sale.cashierName : (auth.user?.name ?? 'Kasir'),
+                            customerName: sale.customerName,
+                            items: itemsList,
+                            subtotal: sale.subtotal,
+                            discount: sale.discountAmount,
+                            tax: sale.taxAmount,
+                            grandTotal: sale.grandTotal,
+                            paymentMethod: sale.paymentMethod,
+                            cashGiven: sale.paidAmount,
+                            changeAmount: sale.changeAmount,
                           );
+
+                          if (ctx.mounted) {
+                            if (success) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Struk faktur berhasil dicetak ke printer Bluetooth!'),
+                                  backgroundColor: Color(0xFF16A34A),
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(
+                                  content: const Text('Gagal mencetak. Printer Bluetooth belum terhubung.'),
+                                  backgroundColor: const Color(0xFFDC2626),
+                                  action: SnackBarAction(
+                                    label: 'Setting',
+                                    textColor: Colors.white,
+                                    onPressed: () {
+                                      Navigator.push(
+                                        ctx,
+                                        MaterialPageRoute(builder: (_) => const PrinterSettingsScreen()),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              );
+                            }
+                          }
                         },
                       ),
                     ),

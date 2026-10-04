@@ -7,6 +7,9 @@ import 'package:poslaravelmobile/data/models/product_model.dart';
 import 'package:poslaravelmobile/features/auth/providers/auth_provider.dart';
 import 'package:poslaravelmobile/features/auth/screens/login_screen.dart';
 import 'package:poslaravelmobile/features/pos/providers/pos_provider.dart';
+import 'package:poslaravelmobile/features/printer/providers/printer_provider.dart';
+import 'package:poslaravelmobile/features/printer/screens/printer_settings_screen.dart';
+import 'package:poslaravelmobile/features/settings/providers/settings_provider.dart';
 import 'package:poslaravelmobile/features/shift/providers/shift_provider.dart';
 
 class PosWorkstationScreen extends StatefulWidget {
@@ -596,11 +599,68 @@ class _PosWorkstationScreenState extends State<PosWorkstationScreen> {
           TextButton.icon(
             icon: const Icon(LucideIcons.printer, size: 16),
             label: const Text('Cetak Struk'),
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Mengirim perintah cetak struk Bluetooth...')),
+            onPressed: () async {
+              final printer = context.read<PrinterProvider>();
+              final auth = context.read<AuthProvider>();
+              final settingsProv = context.read<SettingsProvider>();
+              final storeName = settingsProv.profile?.companyName.isNotEmpty == true ? settingsProv.profile!.companyName : 'WARUNG PRO POS';
+
+              final rawItems = (result['items'] ?? result['sale']?['items'] ?? result['sale_items'] ?? []) as List<dynamic>;
+              final itemsList = rawItems.map((e) {
+                if (e is Map<String, dynamic>) return e;
+                return Map<String, dynamic>.from(e as Map);
+              }).toList();
+
+              final grandTotal = double.tryParse((result['grand_total'] ?? 0).toString()) ?? 0.0;
+              final changeAmount = double.tryParse((result['change_amount'] ?? 0).toString()) ?? 0.0;
+              final subtotal = double.tryParse((result['subtotal'] ?? grandTotal).toString()) ?? grandTotal;
+              final discount = double.tryParse((result['discount_amount'] ?? 0).toString()) ?? 0.0;
+              final tax = double.tryParse((result['tax_amount'] ?? 0).toString()) ?? 0.0;
+              final cashGiven = double.tryParse((result['cash_amount'] ?? result['paid_amount'] ?? grandTotal).toString()) ?? grandTotal;
+
+              final success = await printer.printSale(
+                storeName: storeName,
+                invoiceNumber: result['invoice_number'] ?? '-',
+                dateString: DateTime.now().toString().substring(0, 19),
+                cashierName: auth.user?.name ?? 'Kasir',
+                customerName: result['customer']?['name'] ?? result['customer_name'] ?? 'Umum',
+                items: itemsList,
+                subtotal: subtotal,
+                discount: discount,
+                tax: tax,
+                grandTotal: grandTotal,
+                paymentMethod: (result['payment_method'] ?? 'cash').toString(),
+                cashGiven: cashGiven,
+                changeAmount: changeAmount,
               );
+
+              if (context.mounted) {
+                if (success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Struk berhasil dicetak ke printer Bluetooth!'),
+                      backgroundColor: Color(0xFF16A34A),
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Gagal mencetak. Printer Bluetooth belum terhubung.'),
+                      backgroundColor: const Color(0xFFDC2626),
+                      action: SnackBarAction(
+                        label: 'Setting',
+                        textColor: Colors.white,
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const PrinterSettingsScreen()),
+                          );
+                        },
+                      ),
+                    ),
+                  );
+                }
+              }
             },
           ),
           ElevatedButton(

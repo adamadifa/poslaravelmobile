@@ -7,6 +7,8 @@ import 'package:poslaravelmobile/core/widgets/app_sidebar_drawer.dart';
 import 'package:poslaravelmobile/data/models/store_settings_model.dart';
 import 'package:poslaravelmobile/features/auth/providers/auth_provider.dart';
 import 'package:poslaravelmobile/features/auth/screens/login_screen.dart';
+import 'package:poslaravelmobile/features/printer/providers/printer_provider.dart';
+import 'package:poslaravelmobile/features/printer/screens/printer_settings_screen.dart';
 import 'package:poslaravelmobile/features/settings/providers/settings_provider.dart';
 import 'package:poslaravelmobile/features/shift/providers/shift_provider.dart';
 
@@ -1150,6 +1152,23 @@ class _ReceiptSettingsTabState extends State<_ReceiptSettingsTab> {
                     isSaving: prov.isSaving,
                     onPressed: _submit,
                   ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(color: AppColors.primary),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      minimumSize: const Size(double.infinity, 46),
+                    ),
+                    icon: const Icon(LucideIcons.printer, size: 16),
+                    label: const Text('Buka Pengaturan & Test Printer Bluetooth', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const PrinterSettingsScreen()),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
@@ -1288,6 +1307,7 @@ class _SystemAppTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final shift = context.watch<ShiftProvider>();
+    final printer = context.watch<PrinterProvider>();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
@@ -1408,13 +1428,50 @@ class _SystemAppTab extends StatelessWidget {
             child: Column(
               children: [
                 ListTile(
-                  leading: const Icon(LucideIcons.printer, color: AppColors.primary),
+                  leading: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: printer.isConnected ? const Color(0xFFDCFCE7) : const Color(0xFFFFF7ED),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      LucideIcons.printer,
+                      color: printer.isConnected ? const Color(0xFF16A34A) : AppColors.primary,
+                      size: 18,
+                    ),
+                  ),
                   title: const Text('Printer Bluetooth Thermal (58mm/80mm)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-                  subtitle: const Text('Konfigurasi koneksi printer struk kasir', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-                  trailing: const Icon(LucideIcons.chevronRight, size: 16, color: Color(0xFF94A3B8)),
+                  subtitle: Text(
+                    printer.isConnected
+                        ? 'Terhubung: ${printer.connectedName ?? "Printer"} (${printer.paperSize}mm)'
+                        : (printer.connectedMac != null ? 'Tersimpan: ${printer.connectedName} (Offline)' : 'Belum terhubung - Ketuk untuk setting'),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: printer.isConnected ? FontWeight.w700 : FontWeight.w500,
+                      color: printer.isConnected ? const Color(0xFF15803D) : const Color(0xFF64748B),
+                    ),
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (printer.isConnected)
+                        Container(
+                          margin: const EdgeInsets.only(right: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDCFCE7),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text('Aktif', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF15803D))),
+                        ),
+                      const Icon(LucideIcons.chevronRight, size: 16, color: Color(0xFF94A3B8)),
+                    ],
+                  ),
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Printer Bluetooth siap digunakan untuk cetak struk kasir.')),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const PrinterSettingsScreen()),
                     );
                   },
                 ),
